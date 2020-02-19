@@ -1,25 +1,25 @@
 import { derived, get, Readable, writable, Writable } from 'svelte/store';
-import { validateChain } from './utils';
+import { validateIterated } from './utils';
 import { ValidatorFn } from './validators';
 
 type GroupValue<T> = { [K in keyof T]: T[K] };
-type ControlStateGroup<T> = { [K in keyof T]: ControlState<T[K]> };
-type ControlStateChildren<T> = T extends (infer K)[] ? ControlState<K>[]
-  : T extends GroupValue<T> ? ControlStateGroup<T>
-  : never;
 
-interface ControlState<T = any> {
-  error: string | null;
+type ControlTypes = string | number | boolean;
 
-  valid: boolean;
+export interface $ControlState {
+  $error: string | null;
 
-  touched: boolean;
+  $valid: boolean;
 
-  dirty: boolean;
+  $touched: boolean;
 
-  children: ControlStateChildren<T>;
-
+  $dirty: boolean;
 }
+
+type ControlState<T = any> = T extends (infer K)[] ? Array<ControlState<K> & $ControlState>
+  : T extends ControlTypes ? $ControlState
+  : T extends GroupValue<T> ? { [K in keyof T]: ControlState<T[K]> & $ControlState }
+  : $ControlState;
 
 export interface ControlBase<T = any> {
   value: Writable<T>;
@@ -32,17 +32,17 @@ export interface ControlBase<T = any> {
 
 }
 
-export class Control<T = any> implements ControlBase<T> {
+export class Control<T = ControlTypes> implements ControlBase<T> {
 
   value = writable<T>(this.initial);
 
   private touched = writable(false);
 
-  state = derived([this.value, this.touched], ([value, touched]) => {
-    const error = validateChain(this.validators, value);
-    const valid = error == null;
-    const dirty = this.initial !== value;
-    return { error, valid, touched, dirty } as ControlState<T>;
+  state = derived([this.value, this.touched], ([value, $touched]) => {
+    const $error = validateIterated(this.validators, value);
+    const $valid = $error == null;
+    const $dirty = this.initial !== value;
+    return { $error, $valid, $touched, $dirty } as ControlState<T>;
   });
 
   constructor(private initial: T, private validators: ValidatorFn<T>[] = []) { }
@@ -78,19 +78,19 @@ export class ControlGroup<T> implements ControlBase<T> {
   };
 
   state = derived(this.value, value => {
-    const children: Record<string, ControlState> = {};
+    const children: Record<string, $ControlState> = {};
     let childError = false;
-    let touched = false;
-    let dirty = false;
+    let $touched = false;
+    let $dirty = false;
     for (const key of Object.keys(this.controls)) {
-      const state = children[key] = get(((this.controls as any)[key] as ControlBase).state) as ControlState;
-      childError = childError || state.error != null;
-      touched = touched || state.touched;
-      dirty = dirty || state.dirty;
+      const state = children[key] = get(((this.controls as any)[key] as ControlBase).state) as $ControlState;
+      childError = childError || state.$error != null;
+      $touched = $touched || state.$touched;
+      $dirty = $dirty || state.$dirty;
     }
-    const error = validateChain(this.validators, value);
-    const valid = error == null && !childError;
-    return { error, valid, touched, dirty, children } as ControlState<T>;
+    const $error = validateIterated(this.validators, value);
+    const $valid = $error == null && !childError;
+    return { $error, $valid, $touched, $dirty, ...children } as ControlState<T>;
   });
 
   constructor(
@@ -149,20 +149,19 @@ export class ControlArray<T> implements ControlBase<T[]> {
   };
 
   state = derived([this.value, this.controlStore], ([value, controls]) => {
-    const children: ControlState<T>[] = [];
+    const children: $ControlState & $ControlState[] = [] as any;
     let childError = false;
-    let touched = false;
-    let dirty = false;
-    for (const control of controls) {
-      const state: ControlState = get(control.state);
-      children.push(state);
-      childError = childError || state.error != null;
-      touched = touched || state.touched;
-      dirty = dirty || state.dirty;
+    for (let i = 0, len = controls.length; i < len; i++) {
+      const state: $ControlState = get(controls[i].state);
+      children[i] = state;
+      childError = childError || state.$error != null;
+      children.$touched = children.$touched || state.$touched;
+      children.$dirty = children.$dirty || state.$dirty;
     }
-    const error = validateChain(this.validators, value);
-    const valid = error == null && !childError;
-    return { error, valid, touched, dirty, children } as ControlState<T[]>;
+    children.$error = validateIterated(this.validators, value);
+    children.$valid = children.$error == null && !childError;
+
+    return children as any as ControlState<T[]>;
   });
 
   constructor(

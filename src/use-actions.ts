@@ -1,11 +1,11 @@
-import { Control, ControlBase } from "./control";
+import { $ControlState, Control, ControlBase } from "./control";
 
 export const controlClasses = (el: HTMLElement, control: Control) => {
 	if (!(control instanceof Control)) throw new Error('must be used with a Control class');
 	const classList = el.classList;
 
-	const stateSub = control.state.subscribe(state => {
-		if (state.error) {
+	const stateSub = control.state.subscribe((state) => {
+		if (state.$error) {
 			classList.add('invalid');
 			classList.remove('valid');
 		} else {
@@ -13,7 +13,7 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 			classList.remove('invalid');
 		}
 
-		if (state.dirty) {
+		if (state.$dirty) {
 			classList.add('dirty');
 			classList.remove('pristine');
 		} else {
@@ -21,7 +21,7 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 			classList.remove('dirty');
 		}
 
-		if (state.touched) {
+		if (state.$touched) {
 			classList.add('touched');
 		} else {
 			classList.remove('touched');
@@ -45,16 +45,11 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 };
 
 export const controlError = (el: HTMLElement, control: ControlBase) => {
-
 	const stateSub = control.state.subscribe(state => {
-		const hide = !state.error;
-		el.hidden = hide;
-		if (!hide) el.innerHTML = state.error!;
+		const error = (state as $ControlState).$error;
+		el.hidden = !error;
+		if (error) el.innerHTML = error;
 	});
 
-	return {
-		destroy() {
-			stateSub();
-		}
-	};
+	return { destroy: stateSub };
 };

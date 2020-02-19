@@ -11,7 +11,7 @@ export const chainValidators: (validators: ValidatorFn[]) => ValidatorFn = valid
 	}
 }
 
-export const validateChain = <T>(validators: ValidatorFn<T>[], fieldValue: T) => {
+export const validateIterated = <T>(validators: ValidatorFn<T>[], fieldValue: T) => {
 	if (!Array.isArray(validators)) return null;
 		for (const validator of validators) {
 			if (typeof validator === 'function') {
