@@ -2,9 +2,10 @@ export type ValidatorFn<T = any> = (fieldValue: T) => string | null;
 
 type ValidatorFactory<T = unknown> = (message: string, config?: T) => ValidatorFn;
 
-export const required: ValidatorFactory = message => value => {
-	const valid = value != null && `${value}` != '';
-	return valid ? null : message;
+export const required: ValidatorFactory = (message, trim = true) => value => {
+	let stringValue = value != null ? `${value}` : '';
+	if (trim) stringValue = stringValue.trim();
+	return stringValue !== '' ? null : message;
 };
 
 const emailFormat = /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/;

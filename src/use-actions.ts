@@ -29,26 +29,29 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 
 	});
 
+	const eventName = 'blur';
+
 	const touchedFn = () => {
 		control.setTouched(true);
-		el.removeEventListener('focus', touchedFn);
+		el.removeEventListener(eventName, touchedFn);
 	}
 
-	el.addEventListener('focus', touchedFn);
+	el.addEventListener(eventName, touchedFn);
 
 	return {
 		destroy() {
-			el.removeEventListener('focus', touchedFn);
+			el.removeEventListener(eventName, touchedFn);
 			stateSub();
 		}
 	}
 };
 
 export const controlError = (el: HTMLElement, control: ControlBase) => {
-	const stateSub = control.state.subscribe(state => {
-		const error = (state as $ControlState).$error;
-		el.hidden = !error;
-		if (error) el.innerHTML = error;
+	const stateSub = control.state.subscribe(_state => {
+		const state = (_state as $ControlState);
+		const hasError = !!(state.$touched && state.$error);
+		el.hidden = !hasError;
+		if (hasError) el.innerHTML = state.$error!;
 	});
 
 	return { destroy: stateSub };

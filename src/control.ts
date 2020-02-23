@@ -45,13 +45,16 @@ export class Control<T = ControlTypes> implements ControlBase<T> {
     return { $error, $valid, $touched, $dirty } as ControlState<T>;
   });
 
-  constructor(private initial: T, private validators: ValidatorFn<T>[] = []) { }
+  constructor(
+    private initial: T,
+    private readonly validators: ValidatorFn<T>[] = [],
+  ) { }
 
   setTouched(touched: boolean) {
     this.touched.set(touched);
   }
 
-  getControl(path: string) {
+  getControl() {
     return null!;
   }
 
@@ -112,6 +115,8 @@ export class ControlGroup<T> implements ControlBase<T> {
       control.value.set((value as any)[key]);
     });
   }
+
+  // TODO: add control, remove control
 
   getControl(path: string) {
     const [_, name, rest] = path.match(objectPath) || [];
@@ -175,6 +180,10 @@ export class ControlArray<T> implements ControlBase<T[]> {
     controls.forEach((control, index) => control.value.set(value[index]));
   }
 
+  get size() {
+    return (get(this.controlStore) as ControlBase<T>[]).length;
+  }
+
   pushControl(control: ControlBase<T>) {
     this.controlStore.update(stores => (stores.push(control), stores));
   }
@@ -185,6 +194,10 @@ export class ControlArray<T> implements ControlBase<T[]> {
 
   removeControlAt(index: number) {
     this.controlStore.update(stores => (stores.splice(index, 1), stores));
+  }
+
+  slice(start = 0, end?: number) {
+    this.controlStore.update(stores => stores.slice(start, end));
   }
 
   getControl(path: string) {
