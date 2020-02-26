@@ -82,17 +82,17 @@ export class ControlGroup<T> implements ControlBase<T> {
 
   state = derived(this.value, value => {
     const children: Record<string, $ControlState> = {};
-    let childError = false;
+    let childrenValid = true;
     let $touched = false;
     let $dirty = false;
     for (const key of Object.keys(this.controls)) {
       const state = children[key] = get(((this.controls as any)[key] as ControlBase).state) as $ControlState;
-      childError = childError || state.$error != null;
+      childrenValid = childrenValid && state.$valid;
       $touched = $touched || state.$touched;
       $dirty = $dirty || state.$dirty;
     }
     const $error = validateIterated(this.validators, value);
-    const $valid = $error == null && !childError;
+    const $valid = $error == null && childrenValid;
     return { $error, $valid, $touched, $dirty, ...children } as ControlState<T>;
   });
 
@@ -155,16 +155,16 @@ export class ControlArray<T> implements ControlBase<T[]> {
 
   state = derived([this.value, this.controlStore], ([value, controls]) => {
     const children: $ControlState & $ControlState[] = [] as any;
-    let childError = false;
+    let childrenValid = true;
     for (let i = 0, len = controls.length; i < len; i++) {
       const state: $ControlState = get(controls[i].state);
       children[i] = state;
-      childError = childError || state.$error != null;
+      childrenValid = childrenValid && state.$valid;
       children.$touched = children.$touched || state.$touched;
       children.$dirty = children.$dirty || state.$dirty;
     }
     children.$error = validateIterated(this.validators, value);
-    children.$valid = children.$error == null && !childError;
+    children.$valid = children.$error == null && childrenValid;
 
     return children as any as ControlState<T[]>;
   });
