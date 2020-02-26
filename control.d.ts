@@ -18,10 +18,11 @@ export interface ControlBase<T = any> {
     state: Readable<ControlState<T>>;
     getControl(path: string): ControlBase;
     reset(value?: T): void;
+    setValidators(validators: ValidatorFn<T>[]): void;
 }
 export declare class Control<T = ControlTypes> implements ControlBase<T> {
     private initial;
-    private readonly validators;
+    private validators;
     value: Writable<T>;
     private touched;
     state: Readable<ControlState<T>>;
@@ -29,13 +30,14 @@ export declare class Control<T = ControlTypes> implements ControlBase<T> {
     setTouched(touched: boolean): void;
     getControl(): never;
     reset(value?: T): void;
+    setValidators(validators: ValidatorFn<T>[]): void;
 }
 declare type Controls<T> = {
     [K in keyof T]: ControlBase<T[K]>;
 };
 export declare class ControlGroup<T> implements ControlBase<T> {
     private readonly controls;
-    private readonly validators;
+    private validators;
     private valueDerived;
     value: Writable<T>;
     state: Readable<ControlState<T>>;
@@ -44,10 +46,11 @@ export declare class ControlGroup<T> implements ControlBase<T> {
     private setValue;
     getControl(path: string): ControlBase<any>;
     reset(value?: T): void;
+    setValidators(validators: ValidatorFn<T>[]): void;
 }
 export declare class ControlArray<T> implements ControlBase<T[]> {
     private readonly controls;
-    private readonly validators;
+    private validators;
     private controlStore;
     private valueDerived;
     value: Writable<T[]>;
@@ -61,5 +64,6 @@ export declare class ControlArray<T> implements ControlBase<T[]> {
     slice(start?: number, end?: number): void;
     getControl(path: string): ControlBase<any>;
     reset(value?: T[]): void;
+    setValidators(validators: ValidatorFn<T[]>[]): void;
 }
 export {};
