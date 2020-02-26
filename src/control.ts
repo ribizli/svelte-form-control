@@ -30,6 +30,8 @@ export interface ControlBase<T = any> {
 
   reset(value?: T): void;
 
+  setValidators(validators: ValidatorFn<T>[]): void;
+
 }
 
 export class Control<T = ControlTypes> implements ControlBase<T> {
@@ -47,7 +49,7 @@ export class Control<T = ControlTypes> implements ControlBase<T> {
 
   constructor(
     private initial: T,
-    private readonly validators: ValidatorFn<T>[] = [],
+    private validators: ValidatorFn<T>[] = [],
   ) { }
 
   setTouched(touched: boolean) {
@@ -63,6 +65,11 @@ export class Control<T = ControlTypes> implements ControlBase<T> {
     if (value != null) this.initial = value;
     this.value.set(this.initial);
   };
+
+  setValidators(validators: ValidatorFn<T>[]) {
+    if (!(Array.isArray(validators) && validators.length)) return;
+    this.validators = validators;
+  }
 
 }
 
@@ -98,7 +105,7 @@ export class ControlGroup<T> implements ControlBase<T> {
 
   constructor(
     private readonly controls: Controls<T>,
-    private readonly validators: ValidatorFn<T>[] = [],
+    private validators: ValidatorFn<T>[] = [],
   ) { }
 
   private initControls(controls: Controls<T>) {
@@ -131,6 +138,11 @@ export class ControlGroup<T> implements ControlBase<T> {
       control.reset((value as any)[key]);
     });
   };
+
+  setValidators(validators: ValidatorFn<T>[]) {
+    if (!(Array.isArray(validators) && validators.length)) return;
+    this.validators = validators;
+  }
 
 }
 
@@ -171,7 +183,7 @@ export class ControlArray<T> implements ControlBase<T[]> {
 
   constructor(
     private readonly controls: ControlBase<T>[],
-    private readonly validators: ValidatorFn<T[]>[] = [],
+    private validators: ValidatorFn<T[]>[] = [],
   ) {
   }
 
@@ -210,6 +222,11 @@ export class ControlArray<T> implements ControlBase<T[]> {
   reset(value?: T[]) {
     const controls: ControlBase<T>[] = get(this.controlStore);
     controls.forEach((control, index) => control.reset(value && value[index]));
+  }
+
+  setValidators(validators: ValidatorFn<T[]>[]) {
+    if (!(Array.isArray(validators) && validators.length)) return;
+    this.validators = validators;
   }
 
 }
