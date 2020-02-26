@@ -6,8 +6,8 @@
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rm -rf dist/ && rollup -c",
-    "watch": "rm -rf dist/ && rollup -cw"
+    "build": "rollup -c",
+    "watch": "rollup -cw"
   },
   "author": "Mark Magyarodi",
   "license": "ISC",
@@ -19,7 +19,7 @@
     "typescript": "^3.8.2"
   },
   "peerDependencies": {
-    "svelte": "^3.16"
+    "svelte": "^3.19"
   },
   "files": [
     "dist/**"
