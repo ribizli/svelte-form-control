@@ -21,20 +21,28 @@ type ControlState<T = any> = T extends (infer K)[] ? Array<ControlState<K> & $Co
   : T extends GroupValue<T> ? { [K in keyof T]: ControlState<T[K]> & $ControlState }
   : $ControlState;
 
-export interface ControlBase<T = any> {
-  value: Writable<T>;
+export abstract class ControlBase<T = any> {
 
-  state: Readable<ControlState<T>>;
+  constructor(protected validators: ValidatorFn<T>[]) { }
 
-  getControl(path: string): ControlBase;
+  abstract value: Writable<T>;
 
-  reset(value?: T): void;
+  abstract state: Readable<ControlState<T>>;
 
-  setValidators(validators: ValidatorFn<T>[]): void;
+  abstract getControl(path: string): ControlBase;
+
+  abstract reset(value?: T): void;
+
+  abstract setTouched(touched: boolean): void;
+
+  setValidators(validators: ValidatorFn<T>[]) {
+    if (!(Array.isArray(validators) && validators.length)) return;
+    this.validators = validators;
+  }
 
 }
 
-export class Control<T = ControlTypes> implements ControlBase<T> {
+export class Control<T = ControlTypes> extends ControlBase<T> {
 
   value = writable<T>(this.initial);
 
@@ -49,8 +57,10 @@ export class Control<T = ControlTypes> implements ControlBase<T> {
 
   constructor(
     private initial: T,
-    private validators: ValidatorFn<T>[] = [],
-  ) { }
+    validators: ValidatorFn<T>[] = [],
+  ) {
+    super(validators);
+  }
 
   setTouched(touched: boolean) {
     this.touched.set(touched);
@@ -66,18 +76,13 @@ export class Control<T = ControlTypes> implements ControlBase<T> {
     this.value.set(this.initial);
   };
 
-  setValidators(validators: ValidatorFn<T>[]) {
-    if (!(Array.isArray(validators) && validators.length)) return;
-    this.validators = validators;
-  }
-
 }
 
 type Controls<T> = { [K in keyof T]: ControlBase<T[K]> };
 
 const objectPath = /^([^.[]+)\.?(.*)$/;
 
-export class ControlGroup<T> implements ControlBase<T> {
+export class ControlGroup<T> extends ControlBase<T> {
 
   private valueDerived = derived(this.initControls(this.controls), value => value);
 
@@ -105,8 +110,10 @@ export class ControlGroup<T> implements ControlBase<T> {
 
   constructor(
     private readonly controls: Controls<T>,
-    private validators: ValidatorFn<T>[] = [],
-  ) { }
+    validators: ValidatorFn<T>[] = [],
+  ) {
+    super(validators);
+  }
 
   private initControls(controls: Controls<T>) {
     const keys = Object.keys(controls);
@@ -123,7 +130,12 @@ export class ControlGroup<T> implements ControlBase<T> {
     });
   }
 
-  // TODO: add control, remove control
+  setTouched(touched: boolean) {
+    Object.keys(this.controls).forEach(key => {
+      const control = (this.controls as any)[key] as ControlBase;
+      control.setTouched(touched);
+    });
+  }
 
   getControl(path: string) {
     const [_, name, rest] = path.match(objectPath) || [];
@@ -139,18 +151,13 @@ export class ControlGroup<T> implements ControlBase<T> {
     });
   };
 
-  setValidators(validators: ValidatorFn<T>[]) {
-    if (!(Array.isArray(validators) && validators.length)) return;
-    this.validators = validators;
-  }
-
 }
 
 const arrayPath = /^\[(\d+)\]\.?(.*)$/;
 
-export class ControlArray<T> implements ControlBase<T[]> {
+export class ControlArray<T> extends ControlBase<T[]> {
 
-  private controlStore = writable(this.controls);
+  private controlStore = writable(this._controls);
 
   private valueDerived = derived(this.controlStore, (controls: ControlBase<T>[], set: (value: T[]) => void) => {
     const derivedValues = derived(
@@ -182,9 +189,10 @@ export class ControlArray<T> implements ControlBase<T[]> {
   });
 
   constructor(
-    private readonly controls: ControlBase<T>[],
-    private validators: ValidatorFn<T[]>[] = [],
+    private readonly _controls: ControlBase<T>[],
+    validators: ValidatorFn<T[]>[] = [],
   ) {
+    super(validators);
   }
 
   private setValue(value: T[]) {
@@ -192,8 +200,17 @@ export class ControlArray<T> implements ControlBase<T[]> {
     controls.forEach((control, index) => control.value.set(value[index]));
   }
 
+  setTouched(touched: boolean) {
+    const controls: ControlBase<T>[] = get(this.controlStore);
+    controls.forEach(control => control.setTouched(touched));
+  }
+
   get size() {
     return (get(this.controlStore) as ControlBase<T>[]).length;
+  }
+
+  get controls() {
+    return (get(this.controlStore) as ControlBase<T>[]);
   }
 
   pushControl(control: ControlBase<T>) {
@@ -208,13 +225,14 @@ export class ControlArray<T> implements ControlBase<T[]> {
     this.controlStore.update(stores => (stores.splice(index, 1), stores));
   }
 
-  slice(start = 0, end?: number) {
+  slice(start?: number, end?: number) {
     this.controlStore.update(stores => stores.slice(start, end));
   }
 
   getControl(path: string) {
     const [_, index, rest] = path.match(arrayPath) || [];
-    const control = index != null && this.controls[+index] || null;
+    const controls: ControlBase<T>[] = get(this.controlStore);
+    const control = index != null && controls[+index] || null;
     if (!control) return null!;
     return rest ? control.getControl(rest) : control;
   }
