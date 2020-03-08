@@ -82,23 +82,41 @@ type Controls<T> = { [K in keyof T]: ControlBase<T[K]> };
 
 const objectPath = /^([^.[]+)\.?(.*)$/;
 
+const controlsValueReadable = <T>(controls: Controls<T>) => {
+  const keys = Object.keys(controls);
+  const controlList = keys.map(key => (<any>controls)[key]);
+  const readables = controlList.map(control => control.value) as any as [Readable<any>, ...Readable<any>[]];
+  return derived(readables, (values: any[]) =>
+    values.reduce((acc, value, index) => (acc[keys[index]] = value, acc), {}) as T);
+};
+
+const controlsStateReadable = <T>(controls: Controls<T>) => {
+  const keys = Object.keys(controls);
+  const controlList = keys.map(key => (<any>controls)[key]);
+  const readables = controlList.map(control => control.state) as any as [Readable<any>, ...Readable<any>[]];
+  return derived(readables, (states: any[]) =>
+    states.reduce((acc, state, index) => (acc[keys[index]] = state, acc), {}) as { [K in keyof T]: $ControlState });
+};
+
 export class ControlGroup<T> extends ControlBase<T> {
 
-  private valueDerived = derived(this.initControls(this.controls), value => value);
+  private valueReadable = controlsValueReadable(this.controls);
+
+  private childStateReadable = controlsStateReadable(this.controls);
 
   value: Writable<T> = {
-    subscribe: this.valueDerived.subscribe,
+    subscribe: this.valueReadable.subscribe,
     set: value => this.setValue(value),
-    update: updater => this.setValue(updater(get(this.valueDerived))),
+    update: updater => this.setValue(updater(get(this.valueReadable))),
   };
 
-  state = derived(this.value, value => {
+  state = derived([this.valueReadable, this.childStateReadable], ([value, childState]) => {
     const children: Record<string, $ControlState> = {};
     let childrenValid = true;
     let $touched = false;
     let $dirty = false;
     for (const key of Object.keys(this.controls)) {
-      const state = children[key] = get(((this.controls as any)[key] as ControlBase).state) as $ControlState;
+      const state = children[key] = (childState as any)[key] as $ControlState;
       childrenValid = childrenValid && state.$valid;
       $touched = $touched || state.$touched;
       $dirty = $dirty || state.$dirty;
@@ -113,14 +131,6 @@ export class ControlGroup<T> extends ControlBase<T> {
     validators: ValidatorFn<T>[] = [],
   ) {
     super(validators);
-  }
-
-  private initControls(controls: Controls<T>) {
-    const keys = Object.keys(controls);
-    const controlList = keys.map(key => (<any>this.controls)[key]);
-    const readables = controlList.map(control => control.value) as any as [Readable<any>, ...Readable<any>[]];
-    return derived(readables, (values: any[]) =>
-      values.reduce((acc, value, index) => (acc[keys[index]] = value, acc), {}) as T);
   }
 
   private setValue(value: T) {
@@ -166,17 +176,25 @@ export class ControlArray<T> extends ControlBase<T[]> {
     return derivedValues.subscribe(set);
   });
 
+  private childStateDerived = derived(this.controlStore,
+    (controls: ControlBase<T>[], set: (value: $ControlState[]) => void) => {
+      const derivedValues = derived(
+        controls.map(control => control.state) as any as [Readable<$ControlState>, ...Readable<$ControlState>[]],
+        values => values as $ControlState[]);
+      return derivedValues.subscribe(set);
+    });
+
   value: Writable<T[]> = {
     subscribe: this.valueDerived.subscribe,
     set: value => this.setValue(value),
     update: updater => this.setValue(updater(get(this.valueDerived))),
   };
 
-  state = derived([this.value, this.controlStore], ([value, controls]) => {
+  state = derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
     const children: $ControlState & $ControlState[] = [] as any;
     let childrenValid = true;
-    for (let i = 0, len = controls.length; i < len; i++) {
-      const state: $ControlState = get(controls[i].state);
+    for (let i = 0, len = childState.length; i < len; i++) {
+      const state = childState[i];
       children[i] = state;
       childrenValid = childrenValid && state.$valid;
       children.$touched = children.$touched || state.$touched;
