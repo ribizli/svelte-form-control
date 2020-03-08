@@ -38,11 +38,11 @@ declare type Controls<T> = {
 };
 export declare class ControlGroup<T> extends ControlBase<T> {
     private readonly controls;
-    private valueDerived;
+    private valueReadable;
+    private childStateReadable;
     value: Writable<T>;
     state: Readable<ControlState<T>>;
     constructor(controls: Controls<T>, validators?: ValidatorFn<T>[]);
-    private initControls;
     private setValue;
     setTouched(touched: boolean): void;
     getControl(path: string): ControlBase<any>;
@@ -52,6 +52,7 @@ export declare class ControlArray<T> extends ControlBase<T[]> {
     private readonly _controls;
     private controlStore;
     private valueDerived;
+    private childStateDerived;
     value: Writable<T[]>;
     state: Readable<(ControlState<T> & $ControlState)[]>;
     constructor(_controls: ControlBase<T>[], validators?: ValidatorFn<T[]>[]);
