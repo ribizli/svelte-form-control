@@ -1,25 +1,10 @@
-# @rbzl/svelte-form-control
-
-## Install
-
-``` bash
-npm i @rbzl/svelte-form-control
-```
-
-## Example usage
-
-See `example` app in the repo.
-
-Short usage example:
-
-``` svelte
-
 <script>
   import {
     Control,
     ControlGroup,
     ControlArray,
     controlClasses,
+    controlError
   } from '@rbzl/svelte-form-control';
 
   import {
@@ -31,6 +16,15 @@ Short usage example:
     min,
     max
   } from '@rbzl/svelte-form-control/validators';
+
+  const labelControl = initial => new Control(initial, [required('required')]);
+
+  const ageControl = new Control(12, [
+    required('number required'),
+    integer('invalid age'),
+    min('minimum 3', 3),
+    max('maximum 20', 20),
+  ]);
 
   const form = new ControlGroup({
     name: new Control('test', [
@@ -59,13 +53,36 @@ Short usage example:
       ]),
     }),
     labels: new ControlArray([
-      new Control('label1', [required('required')]),
-      new Control('label1', [required('required')]),
+      labelControl('label1'),
+      labelControl('label2'),
     ]),
-  });
+  },
+    [
+      (value) => {
+        const valid =
+          value.name && value.email && value.email.substr(0, value.email.indexOf('@')) === value.name;
+        return valid ? null : `email username part should be the same as name`;
+      }
+    ]);
 
   const value = form.value;
   const state = form.state;
+
+  const labelsControl = form.child('labels');
+  const labels = labelsControl.controls;
+
+  const addLabel = () => labelsControl.pushControl(labelControl('new'));
+  const removeLabel = label => () => labelsControl.removeControl(label);
+
+  let ageAvailable = false;
+  const toggleAge = () => {
+    ageAvailable = !form.child('age');
+    if (ageAvailable) {
+      form.addControl('age', ageControl);
+      } else {
+      form.removeControl('age');
+    }
+  };
 
   $: json = JSON.stringify($value, undefined, 2);
   $: stateJson = JSON.stringify($state, undefined, 2);
@@ -100,6 +117,14 @@ fieldset {
   <span class='error' use:controlError={form.child('email')}></span>
 </label>
 
+{#if ageAvailable}
+<label>
+  <span class="label">age:</span>
+  <input type="number" bind:value={$value.age} use:controlClasses={form.child('age')} />
+  <span class='error' use:controlError={form.child('age')}></span>
+</label>
+{/if}
+
 <fieldset>
   <legend>address:</legend>
   <label>
@@ -125,19 +150,30 @@ fieldset {
   {#each $labels as label, index (label)}
     <div class="">
       <input bind:value={$value.labels[index]} use:controlClasses={label} />
+      <button on:click={removeLabel(label)}>- remove</button>
       <span class='error' use:controlError={label}></span>
     </div>
   {/each}
+  <div>
+    <button on:click={addLabel}>+ add</button>
+  </div>
+  {#if !$state.labels.$valid}
+  <div class='error'>Some label invalid</div>
+  {/if}
 </fieldset>
 
 <div>
   <button on:click={() => form.reset($value)} disabled={!$state.$valid || !$state.$dirty}>submit</button>
-  <button on:click={() => form.reset({ labels: ['reset1', 'reset2'] })} disabled={!$state.$dirty}>
+  <button on:click={() => form.reset({ labels: ['reset1'] })} disabled={!$state.$dirty}>
     reset
+  </button>
+  <button on:click={() => form.reset({ address: { zip: 11111 } })} disabled={!$state.$dirty}>
+    reset2
+  </button>
+  <button on:click={toggleAge}>
+    toggle age
   </button>
 </div>
 
 <pre>{json}</pre>
 <pre>{stateJson}</pre>
-
-```
