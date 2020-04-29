@@ -34,6 +34,8 @@ Short usage example:
     max
   } from '@rbzl/svelte-form-control/validators';
 
+  import { ControlError } from '@rbzl/svelte-form-control/components';
+
   const form = new ControlGroup({
     name: new Control('test', [
       required('name required'),
