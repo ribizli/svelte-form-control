@@ -1,19 +1,24 @@
+import { parse } from 'path';
+import del from 'rollup-plugin-delete';
+import { terser } from 'rollup-plugin-terser';
 import typescript from 'rollup-plugin-typescript2';
 import pkg from './package.json';
-import {terser} from "rollup-plugin-terser";
 
 const production = !process.env.ROLLUP_WATCH;
 
 export default {
-  input: 'src/index.ts', // our source file
+  input: {
+    index: 'src/index.ts',
+    validators: 'src/validators.ts',
+  },
   output: [
     {
-      file: pkg.main,
+      dir: parse(pkg.main).dir,
       format: 'cjs',
       sourcemap: true,
     },
     {
-      file: pkg.module,
+      dir: parse(pkg.module).dir,
       format: 'es', // the preferred format
       sourcemap: true,
     },
@@ -22,6 +27,11 @@ export default {
     'svelte/store',
   ],
   plugins: [
+    del({
+      targets: ['dist/*', '!dist/package.json'],
+      runOnce: !production,
+      verbose: !production,
+    }),
     typescript({
       typescript: require('typescript'),
     }),

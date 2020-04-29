@@ -15,16 +15,19 @@ npm i @rbzl/svelte-form-control
     Control,
     ControlGroup,
     ControlArray,
+    controlClasses,
+    controlError
+  } from "@rbzl/svelte-form-control";
+
+  import {
     email,
     integer,
     required,
     minLength,
     maxLength,
     min,
-    max,
-    controlClasses,
-    controlError
-  } from "@rbzl/svelte-form-control";
+    max
+  } from "@rbzl/svelte-form-control/validators";
 
   const form = new ControlGroup({
       name: new Control("tes", [
