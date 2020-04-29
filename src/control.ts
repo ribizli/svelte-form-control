@@ -1,13 +1,13 @@
 import { derived, get, Readable, writable, Writable } from 'svelte/store';
 import { validateIterated } from './utils';
-import { ValidatorFn } from './validators';
+import { ValidationError, ValidatorFn } from './validators';
 
 type GroupValue<T> = { [K in keyof T]: T[K] };
 
 type ControlTypes = string | number | boolean;
 
 export interface $ControlState {
-  $error: string | null;
+  $error: ValidationError | null;
 
   $valid: boolean;
 

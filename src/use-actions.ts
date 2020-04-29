@@ -49,17 +49,3 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 		}
 	}
 };
-
-export const controlErrorFactory = ({ onlyTouched = false } = {}) =>
-	(el: HTMLElement, control: ControlBase) => {
-		const stateSub = (<Readable<$ControlState>>control.state).subscribe(state => {
-			const hasError = !!((!onlyTouched || state.$touched) && state.$error);
-			el.hidden = !hasError;
-			if (hasError) el.innerHTML = state.$error!;
-		});
-
-		return { destroy: stateSub };
-	};
-
-
-export const controlError = controlErrorFactory();

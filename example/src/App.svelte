@@ -4,7 +4,6 @@
     ControlGroup,
     ControlArray,
     controlClasses,
-    controlError
   } from '@rbzl/svelte-form-control';
 
   import {
@@ -17,38 +16,40 @@
     max
   } from '@rbzl/svelte-form-control/validators';
 
-  const labelControl = initial => new Control(initial, [required('required')]);
+  import { ControlError } from '@rbzl/svelte-form-control/components';
+
+  const labelControl = initial => new Control(initial, [required]);
 
   const ageControl = new Control(12, [
-    required('number required'),
-    integer('invalid age'),
-    min('minimum 3', 3),
-    max('maximum 20', 20),
+    required,
+    integer,
+    min(3),
+    max(20),
   ]);
 
   const form = new ControlGroup({
     name: new Control('test', [
-      required('name required'),
-      minLength('min length 4', 4),
-      maxLength('max length 10', 10),
-      name => name === 'test' ? null : 'expected <b>test</b>',
+      required,
+      minLength(4),
+      maxLength(10),
+      name => name === 'test' ? null : { expected: 'test' },
     ]),
     email: new Control('test@inbox.com', [
-      required('email required'),
-      email('invalid email')
+      required,
+      email
     ]),
     address: new ControlGroup({
       line: new Control('line', [
-        required('address required'),
+        required,
       ]),
       city: new Control('ciry', [
-        required('city required'),
+        required,
       ]),
       zip: new Control(11111, [
-        required('zip required'),
-        integer('must be a number'),
-        min('5 digits', 10000),
-        max('5 digits', 99999),
+        required,
+        integer,
+        minLength(5),
+        maxLength(5),
 
       ]),
     }),
@@ -61,7 +62,7 @@
       (value) => {
         const valid =
           value.name && value.email && value.email.substr(0, value.email.indexOf('@')) === value.name;
-        return valid ? null : `email username part should be the same as name`;
+        return valid ? null : { custom: `email username part should be the same as name` };
       }
     ]);
 
@@ -101,27 +102,30 @@ fieldset {
 
 <h1>Svelte form control example</h1>
 
-<div>Form is {$state.$valid ? 'valid' : 'invalid'}</div>
+<div>
+  Form is {$state.$valid ? 'valid' : 'invalid'}
+  <ControlError control={form}/>
+</div>
 <div>Values are {$state.$dirty ? 'dirty' : 'pristine'}</div>
 <div>Fields are {$state.$touched ? 'touched' : 'untouched'}</div>
 
 <label>
   <span class="label">name:</span>
   <input bind:value={$value.name} use:controlClasses={form.child('name')} />
-  <span class='error' use:controlError={form.child('name')}></span>
+  <ControlError control={form.child('name')}/>
 </label>
 
 <label>
   <span class="label">email:</span>
   <input bind:value={$value.email} use:controlClasses={form.child('email')} />
-  <span class='error' use:controlError={form.child('email')}></span>
+  <ControlError control={form.child('email')}/>
 </label>
 
 {#if ageAvailable}
 <label>
   <span class="label">age:</span>
   <input type="number" bind:value={$value.age} use:controlClasses={form.child('age')} />
-  <span class='error' use:controlError={form.child('age')}></span>
+  <ControlError control={form.child('age')}/>
 </label>
 {/if}
 
@@ -129,19 +133,19 @@ fieldset {
   <legend>address:</legend>
   <label>
     <input bind:value={$value.address.line} use:controlClasses={form.child('address.line')} />
-    <span class='error' use:controlError={form.child('address.line')}></span>
+    <ControlError control={form.child('address.line')}/>
   </label>
 
   <label>
     <span class="label">city:</span>
     <input bind:value={$value.address.city} use:controlClasses={form.child('address.city')} />
-    <span class='error' use:controlError={form.child('address.city')}></span>
+    <ControlError control={form.child('address.city')}/>
   </label>
 
   <label>
     <span class="label">zip:</span>
     <input type="number" bind:value={$value.address.zip} use:controlClasses={form.child('address.zip')} />
-    <span class='error' use:controlError={form.child('address.zip')}></span>
+    <ControlError control={form.child('address.zip')}/>
   </label>
 </fieldset>
 
@@ -151,7 +155,7 @@ fieldset {
     <div class="">
       <input bind:value={$value.labels[index]} use:controlClasses={label} />
       <button on:click={removeLabel(label)}>- remove</button>
-      <span class='error' use:controlError={label}></span>
+      <ControlError control={label}/>
     </div>
   {/each}
   <div>

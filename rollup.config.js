@@ -28,7 +28,7 @@ export default {
   ],
   plugins: [
     del({
-      targets: ['dist/*', '!dist/package.json'],
+      targets: ['dist/*', '!dist/package.json', '!dist/components'],
       runOnce: !production,
       verbose: !production,
     }),

@@ -17,6 +17,7 @@
     "sirv-cli": "^0.4.4"
   },
   "alias": {
+    "@rbzl/svelte-form-control/components": "../../dist/components/index.js",
     "@rbzl/svelte-form-control": "../../dist/esm"
   }
 }
