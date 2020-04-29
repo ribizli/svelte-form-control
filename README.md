@@ -93,32 +93,32 @@ fieldset {
 <label>
   <span class="label">name:</span>
   <input bind:value={$value.name} use:controlClasses={form.child('name')} />
-  <span class='error' use:controlError={form.child('name')}></span>
+  <ControlError control={form.child('name')}/>
 </label>
 
 <label>
   <span class="label">email:</span>
   <input bind:value={$value.email} use:controlClasses={form.child('email')} />
-  <span class='error' use:controlError={form.child('email')}></span>
+  <ControlError control={form.child('email')}/>
 </label>
 
 <fieldset>
   <legend>address:</legend>
   <label>
     <input bind:value={$value.address.line} use:controlClasses={form.child('address.line')} />
-    <span class='error' use:controlError={form.child('address.line')}></span>
+    <ControlError control={form.child('address.line')}/>
   </label>
 
   <label>
     <span class="label">city:</span>
     <input bind:value={$value.address.city} use:controlClasses={form.child('address.city')} />
-    <span class='error' use:controlError={form.child('address.city')}></span>
+    <ControlError control={form.child('address.city')}/>
   </label>
 
   <label>
     <span class="label">zip:</span>
     <input type="number" bind:value={$value.address.zip} use:controlClasses={form.child('address.zip')} />
-    <span class='error' use:controlError={form.child('address.zip')}></span>
+    <ControlError control={form.child('address.zip')}/>
   </label>
 </fieldset>
 
@@ -127,7 +127,7 @@ fieldset {
   {#each $labels as label, index (label)}
     <div class="">
       <input bind:value={$value.labels[index]} use:controlClasses={label} />
-      <span class='error' use:controlError={label}></span>
+      <ControlError control={label}/>
     </div>
   {/each}
 </fieldset>

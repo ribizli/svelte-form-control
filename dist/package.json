@@ -1,14 +1,14 @@
 {
   "name": "@rbzl/svelte-form-control",
-  "version": "0.0.3",
+  "version": "0.1.3",
   "description": "Svelte form validation and state store library",
   "svelte": "components/index.js",
   "main": "cjs/index.js",
-  "module": "esm/index.mjs",
+  "module": "esm/index.js",
   "types": "index.d.ts",
   "author": "Mark Magyarodi",
   "license": "ISC",
   "peerDependencies": {
-    "svelte": "^3.19"
+    "svelte": "^3.20"
   }
 }
