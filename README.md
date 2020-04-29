@@ -4,8 +4,10 @@ Inspired by Angular's reactive forms but made it 'the Svelte way'.
 
 ## Install
 
+**Note**: the package is not yet published to NPM, install it from github directly
+
 ``` bash
-npm i @rbzl/svelte-form-control
+npm i github:ribizli/svelte-form-control#publish
 ```
 
 ## Example usage
@@ -38,33 +40,33 @@ Short usage example:
 
   const form = new ControlGroup({
     name: new Control('test', [
-      required('name required'),
-      minLength('min length 4', 4),
-      maxLength('max length 10', 10),
-      name => name === 'test' ? null : 'expected <b>test</b>',
+      required,
+      minLength(4),
+      maxLength(10),
+      name => name === 'test' ? null : { expected: 'test' },
     ]),
     email: new Control('test@inbox.com', [
-      required('email required'),
-      email('invalid email')
+      required,
+      email,
     ]),
     address: new ControlGroup({
       line: new Control('line', [
-        required('address required'),
+        required,
       ]),
       city: new Control('ciry', [
-        required('city required'),
+        required,
       ]),
       zip: new Control(11111, [
-        required('zip required'),
-        integer('must be a number'),
-        min('5 digits', 10000),
-        max('5 digits', 99999),
+        required,
+        integer,
+        minLength(5),
+        maxLength(5),
 
       ]),
     }),
     labels: new ControlArray([
-      new Control('label1', [required('required')]),
-      new Control('label1', [required('required')]),
+      new Control('label1', [required]),
+      new Control('label1', [required]),
     ]),
   });
 
