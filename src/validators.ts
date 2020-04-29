@@ -17,12 +17,12 @@ export const email: ValidatorFactory = message => email => {
 };
 
 export const minLength: ValidatorFactory<number> = (message, min) => value => {
-	const valid = empty(value) && (min == null || `${value}`.length >= min);
+	const valid = empty(value) || min == null || `${value}`.length >= min;
 	return valid ? null : message;
 };
 
 export const maxLength: ValidatorFactory<number> = (message, max) => value => {
-	const valid = empty(value) && (max == null || `${value}`.length <= max);
+	const valid = empty(value) || max == null || `${value}`.length <= max;
 	return valid ? null : message;
 };
 

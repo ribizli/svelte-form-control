@@ -16,7 +16,7 @@ export interface $ControlState {
   $dirty: boolean;
 }
 
-type ControlState<T = any> = T extends (infer K)[] ? Array<ControlState<K> & $ControlState>
+type ControlState<T = any> = T extends (infer K)[] ? $ControlState & { list: Array<ControlState<K>> } 
   : T extends ControlTypes ? $ControlState
   : T extends GroupValue<T> ? { [K in keyof T]: ControlState<T[K]> & $ControlState }
   : $ControlState;
@@ -29,7 +29,7 @@ export abstract class ControlBase<T = any> {
 
   abstract state: Readable<ControlState<T>>;
 
-  abstract getControl(path: string): ControlBase;
+  abstract child(path: string): ControlBase;
 
   abstract reset(value?: T): void;
 
@@ -66,56 +66,57 @@ export class Control<T = ControlTypes> extends ControlBase<T> {
     this.touched.set(touched);
   }
 
-  getControl() {
+  child() {
     return null!;
   }
 
   reset(value?: T) {
-    this.touched.set(false);
-    if (value != null) this.initial = value;
+    if (value !== undefined) this.initial = value;
     this.value.set(this.initial);
+    this.touched.set(false);
   };
 
 }
 
 type Controls<T> = { [K in keyof T]: ControlBase<T[K]> };
-
+type ControlsState<T> = { [K in keyof T]: $ControlState };
 const objectPath = /^([^.[]+)\.?(.*)$/;
-
-const controlsValueReadable = <T>(controls: Controls<T>) => {
-  const keys = Object.keys(controls);
-  const controlList = keys.map(key => (<any>controls)[key]);
-  const readables = controlList.map(control => control.value) as any as [Readable<any>, ...Readable<any>[]];
-  return derived(readables, (values: any[]) =>
-    values.reduce((acc, value, index) => (acc[keys[index]] = value, acc), {}) as T);
-};
-
-const controlsStateReadable = <T>(controls: Controls<T>) => {
-  const keys = Object.keys(controls);
-  const controlList = keys.map(key => (<any>controls)[key]);
-  const readables = controlList.map(control => control.state) as any as [Readable<any>, ...Readable<any>[]];
-  return derived(readables, (states: any[]) =>
-    states.reduce((acc, state, index) => (acc[keys[index]] = state, acc), {}) as { [K in keyof T]: $ControlState });
-};
 
 export class ControlGroup<T> extends ControlBase<T> {
 
-  private valueReadable = controlsValueReadable(this.controls);
+  private controlStore = writable<Controls<T>>({} as any);
 
-  private childStateReadable = controlsStateReadable(this.controls);
+  controls: Readable<Controls<T>> = { subscribe: this.controlStore.subscribe };
+
+  private valueDerived = derived(this.controlStore, (controls: Controls<T>, set: (value: T) => void) => {
+    const keys = Object.keys(controls) as Array<keyof T>;
+    const controlValues = keys.map(key => controls[key].value);
+    const derivedValues = derived(controlValues as any,
+      values => (<any[]>values).reduce((acc, value, index) => (acc[keys[index]] = value, acc), {}) as T);
+    return derivedValues.subscribe(set);
+  });
+
+  private childStateDerived = derived(this.controlStore,
+    (controls: Controls<T>, set: (value: ControlsState<T>) => void) => {
+      const keys = Object.keys(controls) as Array<keyof T>;
+      const controlStates = keys.map(key => controls[key].state);
+      const derivedStates = derived(controlStates as any,
+        states => (<any[]>states).reduce((acc, state, index) => (acc[keys[index]] = state, acc), {}) as ControlsState<T>);
+      return derivedStates.subscribe(set);
+    });
 
   value: Writable<T> = {
-    subscribe: this.valueReadable.subscribe,
+    subscribe: this.valueDerived.subscribe,
     set: value => this.setValue(value),
-    update: updater => this.setValue(updater(get(this.valueReadable))),
+    update: updater => this.setValue(updater(get(this.valueDerived))),
   };
 
-  state = derived([this.valueReadable, this.childStateReadable], ([value, childState]) => {
+  state = derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
     const children: Record<string, $ControlState> = {};
     let childrenValid = true;
     let $touched = false;
     let $dirty = false;
-    for (const key of Object.keys(this.controls)) {
+    for (const key of Object.keys(childState)) {
       const state = children[key] = (childState as any)[key] as $ControlState;
       childrenValid = childrenValid && state.$valid;
       $touched = $touched || state.$touched;
@@ -127,37 +128,49 @@ export class ControlGroup<T> extends ControlBase<T> {
   });
 
   constructor(
-    private readonly controls: Controls<T>,
+    controls: Controls<T>,
     validators: ValidatorFn<T>[] = [],
   ) {
     super(validators);
+    this.controlStore.set(controls);
+  }
+
+  private iterateControls(callback: (args: [keyof T, ControlBase]) => void) {
+    const controls = get(this.controlStore);
+    (<[keyof T, ControlBase][]>Object.entries(controls)).forEach(callback);
   }
 
   private setValue(value: T) {
-    Object.keys(this.controls).forEach(key => {
-      const control = (this.controls as any)[key] as ControlBase;
+    this.iterateControls(([key, control]) => {
       control.value.set((value as any)[key]);
     });
   }
 
+  addControl(key: string, control: ControlBase) {
+    this.controlStore.update(controls => ((<any>controls)[key] = control, controls));
+  }
+
+  removeControl(key: string) {
+    this.controlStore.update(controls => (delete (<any>controls)[key], controls));
+  }
+
   setTouched(touched: boolean) {
-    Object.keys(this.controls).forEach(key => {
-      const control = (this.controls as any)[key] as ControlBase;
+    this.iterateControls(([_, control]) => {
       control.setTouched(touched);
     });
   }
 
-  getControl(path: string) {
+  child(path: string) {
     const [_, name, rest] = path.match(objectPath) || [];
-    const control = name && (this.controls as any)[name] as ControlBase || null;
+    const controls = get(this.controlStore);
+    const control = name && (controls as any)[name] as ControlBase || null;
     if (!control) return null!;
-    return rest ? control.getControl(rest) : control;
+    return rest ? control.child(rest) : control;
   }
 
   reset(value?: T) {
-    Object.keys(this.controls).forEach(key => {
-      const control = (this.controls as any)[key] as ControlBase;
-      control.reset((value as any)[key]);
+    this.iterateControls(([key, control]) => {
+      control.reset(value && (value as any)[key]);
     });
   };
 
@@ -169,19 +182,21 @@ export class ControlArray<T> extends ControlBase<T[]> {
 
   private controlStore = writable(this._controls);
 
+  controls: Readable<ControlBase<T>[]> = { subscribe: this.controlStore.subscribe };
+
   private valueDerived = derived(this.controlStore, (controls: ControlBase<T>[], set: (value: T[]) => void) => {
     const derivedValues = derived(
-      controls.map(control => control.value) as any as [Readable<T>, ...Readable<T>[]],
+      controls.map(control => control.value) as any,
       values => values as T[]);
     return derivedValues.subscribe(set);
   });
 
   private childStateDerived = derived(this.controlStore,
     (controls: ControlBase<T>[], set: (value: $ControlState[]) => void) => {
-      const derivedValues = derived(
-        controls.map(control => control.state) as any as [Readable<$ControlState>, ...Readable<$ControlState>[]],
+      const derivedStates = derived(
+        controls.map(control => control.state) as any,
         values => values as $ControlState[]);
-      return derivedValues.subscribe(set);
+      return derivedStates.subscribe(set);
     });
 
   value: Writable<T[]> = {
@@ -191,19 +206,20 @@ export class ControlArray<T> extends ControlBase<T[]> {
   };
 
   state = derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
-    const children: $ControlState & $ControlState[] = [] as any;
+    const arrayState = { } as $ControlState & { list: $ControlState[] };
+    arrayState.list = [];
     let childrenValid = true;
     for (let i = 0, len = childState.length; i < len; i++) {
       const state = childState[i];
-      children[i] = state;
+      arrayState.list[i] = state;
       childrenValid = childrenValid && state.$valid;
-      children.$touched = children.$touched || state.$touched;
-      children.$dirty = children.$dirty || state.$dirty;
+      arrayState.$touched = arrayState.$touched || state.$touched;
+      arrayState.$dirty = arrayState.$dirty || state.$dirty;
     }
-    children.$error = validateIterated(this.validators, value);
-    children.$valid = children.$error == null && childrenValid;
+    arrayState.$error = validateIterated(this.validators, value);
+    arrayState.$valid = arrayState.$error == null && childrenValid;
 
-    return children as any as ControlState<T[]>;
+    return arrayState as ControlState<T[]>;
   });
 
   constructor(
@@ -213,56 +229,49 @@ export class ControlArray<T> extends ControlBase<T[]> {
     super(validators);
   }
 
-  private setValue(value: T[]) {
+  private iterateControls(callback: (control: ControlBase<T>, index: number) => void) {
     const controls: ControlBase<T>[] = get(this.controlStore);
-    controls.forEach((control, index) => control.value.set(value[index]));
+    controls.forEach(callback);
+  }
+
+  private setValue(value: T[]) {
+    this.iterateControls((control, index) => control.value.set(value[index]));
   }
 
   setTouched(touched: boolean) {
-    const controls: ControlBase<T>[] = get(this.controlStore);
-    controls.forEach(control => control.setTouched(touched));
-  }
-
-  get size() {
-    return (get(this.controlStore) as ControlBase<T>[]).length;
-  }
-
-  get controls() {
-    return (get(this.controlStore) as ControlBase<T>[]);
+    this.iterateControls(control => control.setTouched(touched));
   }
 
   pushControl(control: ControlBase<T>) {
-    this.controlStore.update(stores => (stores.push(control), stores));
+    this.controlStore.update(controls => (controls.push(control), controls));
   }
 
   addControlAt(index: number, control: ControlBase<T>) {
-    this.controlStore.update(stores => (stores.splice(index, 0, control), stores));
+    this.controlStore.update(controls => (controls.splice(index, 0, control), controls));
   }
 
   removeControlAt(index: number) {
-    this.controlStore.update(stores => (stores.splice(index, 1), stores));
+    this.controlStore.update(controls => (controls.splice(index, 1), controls));
+  }
+
+  removeControl(control: ControlBase<T>) {
+    this.controlStore.update(controls => controls.filter(c => c !== control));
   }
 
   slice(start?: number, end?: number) {
-    this.controlStore.update(stores => stores.slice(start, end));
+    this.controlStore.update(controls => controls.slice(start, end));
   }
 
-  getControl(path: string) {
+  child(path: string) {
     const [_, index, rest] = path.match(arrayPath) || [];
     const controls: ControlBase<T>[] = get(this.controlStore);
     const control = index != null && controls[+index] || null;
     if (!control) return null!;
-    return rest ? control.getControl(rest) : control;
+    return rest ? control.child(rest) : control;
   }
 
   reset(value?: T[]) {
-    const controls: ControlBase<T>[] = get(this.controlStore);
-    controls.forEach((control, index) => control.reset(value && value[index]));
-  }
-
-  setValidators(validators: ValidatorFn<T[]>[]) {
-    if (!(Array.isArray(validators) && validators.length)) return;
-    this.validators = validators;
+    this.iterateControls((control, index) => control.reset(value && value[index]));
   }
 
 }

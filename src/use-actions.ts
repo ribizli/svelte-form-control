@@ -1,3 +1,4 @@
+import { get, Readable } from 'svelte/store';
 import { $ControlState, Control, ControlBase } from "./control";
 
 export const controlClasses = (el: HTMLElement, control: Control) => {
@@ -35,8 +36,8 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 	const unregister = () => eventNames.forEach(eventName => el.removeEventListener(eventName, touchedFn));
 
 	const touchedFn = () => {
+		if ((<$ControlState>get(control.state)).$touched) return;
 		control.setTouched(true);
-		unregister();
 	}
 
 	eventNames.forEach(eventName => el.addEventListener(eventName, touchedFn));
@@ -51,10 +52,7 @@ export const controlClasses = (el: HTMLElement, control: Control) => {
 
 export const controlErrorFactory = ({ onlyTouched = false } = {}) =>
 	(el: HTMLElement, control: ControlBase) => {
-		if (!(control instanceof Control)) throw new Error('must be used with a Control class');
-
-		const stateSub = control.state.subscribe(_state => {
-			const state = (_state as $ControlState);
+		const stateSub = (<Readable<$ControlState>>control.state).subscribe(state => {
 			const hasError = !!((!onlyTouched || state.$touched) && state.$error);
 			el.hidden = !hasError;
 			if (hasError) el.innerHTML = state.$error!;
