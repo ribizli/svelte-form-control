@@ -14,7 +14,8 @@
 </script>
 <script>
   export let control;
-  export let classes = 'error';
+  let classes = 'control-error';
+  export { classes as class };
   export let messages = {};
 
   $: mergedMessages = messages ? {...defaultErrorMessages, ...messages} : {};
@@ -35,10 +36,6 @@
 
 {#if $state.$error}
 <span class={classes}>
-  {#if messages}
-    {message}
-  {:else}
-    <slot {error} {value} />
-  {/if}
+  {message}
 </span>
 {/if}
