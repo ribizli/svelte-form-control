@@ -1,1 +1,2 @@
-export { default as ControlError } from './control-error.svelte';
+export { default as ControlError, defaultErrorMessages } from './ControlError.svelte';
+export * from '../esm';

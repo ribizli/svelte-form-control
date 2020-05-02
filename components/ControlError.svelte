@@ -1,5 +1,5 @@
 <script context="module">
-  const defaultMessages = {
+  export const defaultErrorMessages = {
     required: 'required',
     email: 'invalid email',
     minLength: min => `min length ${min}`,
@@ -17,7 +17,7 @@
   export let classes = 'error';
   export let messages = {};
 
-  $: mergedMessages = messages ? {...defaultMessages, ...messages} : {};
+  $: mergedMessages = messages ? {...defaultErrorMessages, ...messages} : {};
 
   const state = control.state;
 

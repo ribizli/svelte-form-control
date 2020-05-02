@@ -1,2 +1,47 @@
-const l=l=>null==l||""+l=="",n=l=>""!==(null!=l&&!1!==l?(""+l).trim():"")?null:{required:!0},t=/^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/,u=n=>l(n)||t.test(n)?null:{email:!0},e=n=>t=>l(t)||null==n||(""+t).trim().length>=n?null:{minLength:n},i=n=>t=>l(t)||null==n||(""+t).trim().length<=n?null:{maxLength:n},a=n=>l(n)||!isNaN(+n)?null:{number:!0},m=/^\d*\.?\d+$/,s=n=>l(n)||!isNaN(+n)&&m.test(""+n)?null:{decimal:!0},N=/^\d+$/,r=n=>l(n)||!isNaN(+n)&&N.test(""+n)?null:{integer:!0},d=n=>t=>l(t)||!isNaN(+t)&&(null==n||t>=n)?null:{min:n},g=n=>t=>l(t)||!isNaN(+t)&&(null==n||t<=n)?null:{max:n},h=n=>t=>l(t)||null==n||n.test(t)?null:{pattern:""+n};export{s as decimal,u as email,r as integer,g as max,i as maxLength,d as min,e as minLength,a as number,h as pattern,n as required};
+const empty = (value) => value == null || `${value}` === '';
+const required = value => {
+    let stringValue = value != null && value !== false ? `${value}`.trim() : '';
+    return stringValue !== '' ? null : { required: true };
+};
+const emailFormat = /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/;
+const email = email => {
+    const valid = empty(email) || emailFormat.test(email);
+    return valid ? null : { email: true };
+};
+const minLength = min => value => {
+    const valid = empty(value) || min == null || `${value}`.trim().length >= min;
+    return valid ? null : { minLength: min };
+};
+const maxLength = max => value => {
+    const valid = empty(value) || max == null || `${value}`.trim().length <= max;
+    return valid ? null : { maxLength: max };
+};
+const number = number => {
+    const valid = empty(number) || !isNaN(+number);
+    return valid ? null : { number: true };
+};
+const decimalFormat = /^\d*\.?\d+$/;
+const decimal = number => {
+    const valid = empty(number) || !isNaN(+number) && decimalFormat.test(`${number}`);
+    return valid ? null : { decimal: true };
+};
+const intFormat = /^\d+$/;
+const integer = number => {
+    const valid = empty(number) || !isNaN(+number) && intFormat.test(`${number}`);
+    return valid ? null : { integer: true };
+};
+const min = min => number => {
+    const valid = empty(number) || !isNaN(+number) && (min == null || number >= min);
+    return valid ? null : { min };
+};
+const max = max => number => {
+    const valid = empty(number) || !isNaN(+number) && (max == null || number <= max);
+    return valid ? null : { max };
+};
+const pattern = re => text => {
+    const valid = empty(text) || (re == null || re.test(text));
+    return valid ? null : { pattern: `${re}` };
+};
+
+export { decimal, email, integer, max, maxLength, min, minLength, number, pattern, required };
 //# sourceMappingURL=validators.js.map

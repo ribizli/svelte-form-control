@@ -1,2 +1,260 @@
-"use strict";Object.defineProperty(exports,"__esModule",{value:!0});var t=require("svelte/store");const e=(t,e)=>{if(!Array.isArray(t))return null;for(const r of t)if("function"==typeof r)try{const t=r(e);if(null!=t)return t}catch(t){console.error("validator error",r,t)}return null};class r{constructor(t){this.validators=t}setValidators(t){Array.isArray(t)&&t.length&&(this.validators=t)}}class s extends r{constructor(r,s=[]){super(s),this.initial=r,this.value=t.writable(this.initial),this.touched=t.writable(!1),this.state=t.derived([this.value,this.touched],([t,r])=>{const s=e(this.validators,t);return{$error:s,$valid:null==s,$touched:r,$dirty:this.initial!==t}})}setTouched(t){this.touched.set(t)}child(){return null}reset(t){void 0!==t&&(this.initial=t),this.value.set(this.initial),this.touched.set(!1)}}const o=/^([^.[]+)\.?(.*)$/;const i=/^\[(\d+)\]\.?(.*)$/;exports.Control=s,exports.ControlArray=class extends r{constructor(r,s=[]){super(s),this._controls=r,this.controlStore=t.writable(this._controls),this.controls={subscribe:this.controlStore.subscribe},this.valueDerived=t.derived(this.controlStore,(e,r)=>t.derived(e.map(t=>t.value),t=>t).subscribe(r)),this.childStateDerived=t.derived(this.controlStore,(e,r)=>t.derived(e.map(t=>t.state),t=>t).subscribe(r)),this.value={subscribe:this.valueDerived.subscribe,set:t=>this.setValue(t),update:e=>this.setValue(e(t.get(this.valueDerived)))},this.state=t.derived([this.valueDerived,this.childStateDerived],([t,r])=>{const s={list:[]};let o=!0;for(let t=0,e=r.length;t<e;t++){const e=r[t];s.list[t]=e,o=o&&e.$valid,s.$touched=s.$touched||e.$touched,s.$dirty=s.$dirty||e.$dirty}return s.$error=e(this.validators,t),s.$valid=null==s.$error&&o,s})}iterateControls(e){t.get(this.controlStore).forEach(e)}setValue(t){this.iterateControls((e,r)=>e.value.set(t[r]))}setTouched(t){this.iterateControls(e=>e.setTouched(t))}pushControl(t){this.controlStore.update(e=>(e.push(t),e))}addControlAt(t,e){this.controlStore.update(r=>(r.splice(t,0,e),r))}removeControlAt(t){this.controlStore.update(e=>(e.splice(t,1),e))}removeControl(t){this.controlStore.update(e=>e.filter(e=>e!==t))}slice(t,e){this.controlStore.update(r=>r.slice(t,e))}child(e){const[r,s,o]=e.match(i)||[],l=t.get(this.controlStore),d=null!=s&&l[+s]||null;return d?o?d.child(o):d:null}reset(t){this.iterateControls((e,r)=>e.reset(t&&t[r]))}},exports.ControlBase=r,exports.ControlGroup=class extends r{constructor(r,s=[]){super(s),this.controlStore=t.writable({}),this.controls={subscribe:this.controlStore.subscribe},this.valueDerived=t.derived(this.controlStore,(e,r)=>{const s=Object.keys(e),o=s.map(t=>e[t].value);return t.derived(o,t=>t.reduce((t,e,r)=>(t[s[r]]=e,t),{})).subscribe(r)}),this.childStateDerived=t.derived(this.controlStore,(e,r)=>{const s=Object.keys(e),o=s.map(t=>e[t].state);return t.derived(o,t=>t.reduce((t,e,r)=>(t[s[r]]=e,t),{})).subscribe(r)}),this.value={subscribe:this.valueDerived.subscribe,set:t=>this.setValue(t),update:e=>this.setValue(e(t.get(this.valueDerived)))},this.state=t.derived([this.valueDerived,this.childStateDerived],([t,r])=>{const s={};let o=!0,i=!1,l=!1;for(const t of Object.keys(r)){const e=s[t]=r[t];o=o&&e.$valid,i=i||e.$touched,l=l||e.$dirty}const d=e(this.validators,t),c=null==d&&o;return Object.assign({$error:d,$valid:c,$touched:i,$dirty:l},s)}),this.controlStore.set(r)}iterateControls(e){const r=t.get(this.controlStore);Object.entries(r).forEach(e)}setValue(t){this.iterateControls(([e,r])=>{r.value.set(t[e])})}addControl(t,e){this.controlStore.update(r=>(r[t]=e,r))}removeControl(t){this.controlStore.update(e=>(delete e[t],e))}setTouched(t){this.iterateControls(([e,r])=>{r.setTouched(t)})}child(e){const[r,s,i]=e.match(o)||[],l=t.get(this.controlStore),d=s&&l[s]||null;return d?i?d.child(i):d:null}reset(t){this.iterateControls(([e,r])=>{r.reset(t&&t[e])})}},exports.controlClasses=(e,r)=>{if(!(r instanceof s))throw new Error("must be used with a Control class");const o=e.classList,i=r.state.subscribe(t=>{t.$error?(o.add("invalid"),o.remove("valid")):(o.add("valid"),o.remove("invalid")),t.$dirty?(o.add("dirty"),o.remove("pristine")):(o.add("pristine"),o.remove("dirty")),t.$touched?o.add("touched"):o.remove("touched")}),l=["blur","focusout"],d=()=>{t.get(r.state).$touched||r.setTouched(!0)};return l.forEach(t=>e.addEventListener(t,d)),{destroy(){l.forEach(t=>e.removeEventListener(t,d)),i()}}};
+'use strict';
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var store = require('svelte/store');
+
+const validateIterated = (validators, fieldValue) => {
+    if (!Array.isArray(validators))
+        return null;
+    for (const validator of validators) {
+        if (typeof validator === 'function') {
+            try {
+                const result = validator(fieldValue);
+                if (result != null)
+                    return result;
+            }
+            catch (e) {
+                console.error(`validator error`, validator, e);
+            }
+        }
+    }
+    return null;
+};
+
+class ControlBase {
+    constructor(validators) {
+        this.validators = validators;
+    }
+    setValidators(validators) {
+        if (!(Array.isArray(validators) && validators.length))
+            return;
+        this.validators = validators;
+    }
+}
+class Control extends ControlBase {
+    constructor(initial, validators = []) {
+        super(validators);
+        this.initial = initial;
+        this.value = store.writable(this.initial);
+        this.touched = store.writable(false);
+        this.state = store.derived([this.value, this.touched], ([value, $touched]) => {
+            const $error = validateIterated(this.validators, value);
+            const $valid = $error == null;
+            const $dirty = this.initial !== value;
+            return { $error, $valid, $touched, $dirty };
+        });
+    }
+    setTouched(touched) {
+        this.touched.set(touched);
+    }
+    child() {
+        return null;
+    }
+    reset(value) {
+        if (value !== undefined)
+            this.initial = value;
+        this.value.set(this.initial);
+        this.touched.set(false);
+    }
+    ;
+}
+const objectPath = /^([^.[]+)\.?(.*)$/;
+class ControlGroup extends ControlBase {
+    constructor(controls, validators = []) {
+        super(validators);
+        this.controlStore = store.writable({});
+        this.controls = { subscribe: this.controlStore.subscribe };
+        this.valueDerived = store.derived(this.controlStore, (controls, set) => {
+            const keys = Object.keys(controls);
+            const controlValues = keys.map(key => controls[key].value);
+            const derivedValues = store.derived(controlValues, values => values.reduce((acc, value, index) => (acc[keys[index]] = value, acc), {}));
+            return derivedValues.subscribe(set);
+        });
+        this.childStateDerived = store.derived(this.controlStore, (controls, set) => {
+            const keys = Object.keys(controls);
+            const controlStates = keys.map(key => controls[key].state);
+            const derivedStates = store.derived(controlStates, states => states.reduce((acc, state, index) => (acc[keys[index]] = state, acc), {}));
+            return derivedStates.subscribe(set);
+        });
+        this.value = {
+            subscribe: this.valueDerived.subscribe,
+            set: value => this.setValue(value),
+            update: updater => this.setValue(updater(store.get(this.valueDerived))),
+        };
+        this.state = store.derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
+            const children = {};
+            let childrenValid = true;
+            let $touched = false;
+            let $dirty = false;
+            for (const key of Object.keys(childState)) {
+                const state = children[key] = childState[key];
+                childrenValid = childrenValid && state.$valid;
+                $touched = $touched || state.$touched;
+                $dirty = $dirty || state.$dirty;
+            }
+            const $error = validateIterated(this.validators, value);
+            const $valid = $error == null && childrenValid;
+            return Object.assign({ $error, $valid, $touched, $dirty }, children);
+        });
+        this.controlStore.set(controls);
+    }
+    iterateControls(callback) {
+        const controls = store.get(this.controlStore);
+        Object.entries(controls).forEach(callback);
+    }
+    setValue(value) {
+        this.iterateControls(([key, control]) => {
+            control.value.set(value[key]);
+        });
+    }
+    addControl(key, control) {
+        this.controlStore.update(controls => (controls[key] = control, controls));
+    }
+    removeControl(key) {
+        this.controlStore.update(controls => (delete controls[key], controls));
+    }
+    setTouched(touched) {
+        this.iterateControls(([_, control]) => {
+            control.setTouched(touched);
+        });
+    }
+    child(path) {
+        const [_, name, rest] = path.match(objectPath) || [];
+        const controls = store.get(this.controlStore);
+        const control = name && controls[name] || null;
+        if (!control)
+            return null;
+        return rest ? control.child(rest) : control;
+    }
+    reset(value) {
+        this.iterateControls(([key, control]) => {
+            control.reset(value && value[key]);
+        });
+    }
+    ;
+}
+const arrayPath = /^\[(\d+)\]\.?(.*)$/;
+class ControlArray extends ControlBase {
+    constructor(_controls, validators = []) {
+        super(validators);
+        this._controls = _controls;
+        this.controlStore = store.writable(this._controls);
+        this.controls = { subscribe: this.controlStore.subscribe };
+        this.valueDerived = store.derived(this.controlStore, (controls, set) => {
+            const derivedValues = store.derived(controls.map(control => control.value), values => values);
+            return derivedValues.subscribe(set);
+        });
+        this.childStateDerived = store.derived(this.controlStore, (controls, set) => {
+            const derivedStates = store.derived(controls.map(control => control.state), values => values);
+            return derivedStates.subscribe(set);
+        });
+        this.value = {
+            subscribe: this.valueDerived.subscribe,
+            set: value => this.setValue(value),
+            update: updater => this.setValue(updater(store.get(this.valueDerived))),
+        };
+        this.state = store.derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
+            const arrayState = {};
+            arrayState.list = [];
+            let childrenValid = true;
+            for (let i = 0, len = childState.length; i < len; i++) {
+                const state = childState[i];
+                arrayState.list[i] = state;
+                childrenValid = childrenValid && state.$valid;
+                arrayState.$touched = arrayState.$touched || state.$touched;
+                arrayState.$dirty = arrayState.$dirty || state.$dirty;
+            }
+            arrayState.$error = validateIterated(this.validators, value);
+            arrayState.$valid = arrayState.$error == null && childrenValid;
+            return arrayState;
+        });
+    }
+    iterateControls(callback) {
+        const controls = store.get(this.controlStore);
+        controls.forEach(callback);
+    }
+    setValue(value) {
+        this.iterateControls((control, index) => control.value.set(value[index]));
+    }
+    setTouched(touched) {
+        this.iterateControls(control => control.setTouched(touched));
+    }
+    pushControl(control) {
+        this.controlStore.update(controls => (controls.push(control), controls));
+    }
+    addControlAt(index, control) {
+        this.controlStore.update(controls => (controls.splice(index, 0, control), controls));
+    }
+    removeControlAt(index) {
+        this.controlStore.update(controls => (controls.splice(index, 1), controls));
+    }
+    removeControl(control) {
+        this.controlStore.update(controls => controls.filter(c => c !== control));
+    }
+    slice(start, end) {
+        this.controlStore.update(controls => controls.slice(start, end));
+    }
+    child(path) {
+        const [_, index, rest] = path.match(arrayPath) || [];
+        const controls = store.get(this.controlStore);
+        const control = index != null && controls[+index] || null;
+        if (!control)
+            return null;
+        return rest ? control.child(rest) : control;
+    }
+    reset(value) {
+        this.iterateControls((control, index) => control.reset(value && value[index]));
+    }
+}
+
+const controlClasses = (el, control) => {
+    if (!(control instanceof Control))
+        throw new Error('must be used with a Control class');
+    const classList = el.classList;
+    const stateSub = control.state.subscribe((state) => {
+        if (state.$error) {
+            classList.add('invalid');
+            classList.remove('valid');
+        }
+        else {
+            classList.add('valid');
+            classList.remove('invalid');
+        }
+        if (state.$dirty) {
+            classList.add('dirty');
+            classList.remove('pristine');
+        }
+        else {
+            classList.add('pristine');
+            classList.remove('dirty');
+        }
+        if (state.$touched) {
+            classList.add('touched');
+        }
+        else {
+            classList.remove('touched');
+        }
+    });
+    const eventNames = ['blur', 'focusout'];
+    const unregister = () => eventNames.forEach(eventName => el.removeEventListener(eventName, touchedFn));
+    const touchedFn = () => {
+        if (store.get(control.state).$touched)
+            return;
+        control.setTouched(true);
+    };
+    eventNames.forEach(eventName => el.addEventListener(eventName, touchedFn));
+    return {
+        destroy() {
+            unregister();
+            stateSub();
+        }
+    };
+};
+
+exports.Control = Control;
+exports.ControlArray = ControlArray;
+exports.ControlBase = ControlBase;
+exports.ControlGroup = ControlGroup;
+exports.controlClasses = controlClasses;
 //# sourceMappingURL=index.js.map
