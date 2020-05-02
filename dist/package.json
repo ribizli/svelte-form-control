@@ -1,6 +1,6 @@
 {
   "name": "@rbzl/svelte-form-control",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Svelte form validation and state store library",
   "svelte": "components/index.js",
   "main": "cjs/index.js",
