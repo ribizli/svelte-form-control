@@ -1,29 +1,21 @@
 import resolve from '@rollup/plugin-node-resolve';
-import { parse } from 'path';
 import copy from 'rollup-plugin-copy';
-import del from 'rollup-plugin-delete';
 import svelte from 'rollup-plugin-svelte';
 import { terser } from 'rollup-plugin-terser';
 import typescript from 'rollup-plugin-typescript2';
-import pkg from './package.json';
-
 
 const production = !process.env.ROLLUP_WATCH;
 
 export default {
-  input: {
-    index: 'src/index.ts',
-    validators: 'src/validators.ts',
-    components: 'src/components/index.js',
-  },
+  input: 'src/index.ts',
   output: [
     {
-      dir: parse(pkg.main).dir,
+      file: 'dist/index.js',
       format: 'cjs',
       sourcemap: true,
     },
     {
-      dir: parse(pkg.module).dir,
+      file: 'dist/index.mjs',
       format: 'es', // the preferred format
       sourcemap: true,
     },
@@ -32,19 +24,9 @@ export default {
     'svelte/store',
   ],
   plugins: [
-    del({
-      targets: ['dist/*', '!dist/package.json'],
-      runOnce: !production,
-      verbose: !production,
-    }),
     copy({
       targets: [
-        { src: 'src/components/**/*.svelte', dest: 'dist/components' },
-        { 
-          src: 'src/components/index.js', 
-          dest: 'dist/components',
-          transform: (contents) => contents.toString() + `export * from '../esm';`,
-        },
+        { src: 'src/components', dest: 'dist' },
       ],
       verbose: !production,
     }),

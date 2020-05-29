@@ -11,9 +11,9 @@
     "rollup-plugin-livereload": "^1.3.0"
   },
   "dependencies": {
-    "sirv-cli": "^0.4.4"
+    "sirv-cli": "^0.4.6"
   },
   "alias": {
-    "@rbzl/svelte-form-control": "../../dist/esm"
+    "@rbzl/svelte-form-control": "../../dist"
   }
 }

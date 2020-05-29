@@ -24,17 +24,14 @@ Short usage example:
     ControlGroup,
     ControlArray,
     controlClasses,
-  } from '@rbzl/svelte-form-control';
-
-  import {
     email,
     integer,
     required,
     minLength,
     maxLength,
     min,
-    max
-  } from '@rbzl/svelte-form-control/validators';
+    max,
+  } from '@rbzl/svelte-form-control';
 
   import { ControlError } from '@rbzl/svelte-form-control/components';
 
