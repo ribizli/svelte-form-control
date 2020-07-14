@@ -16,14 +16,18 @@ export interface $ControlState {
   $dirty: boolean;
 }
 
-type ControlState<T = any> = T extends (infer K)[] ? $ControlState & { list: Array<ControlState<K>> } 
+type ControlState<T = any> = T extends (infer K)[] ? $ControlState & { list: Array<ControlState<K>> }
   : T extends ControlTypes ? $ControlState
   : T extends GroupValue<T> ? { [K in keyof T]: ControlState<T[K]> & $ControlState }
   : $ControlState;
 
 export abstract class ControlBase<T = any> {
 
-  constructor(protected validators: ValidatorFn<T>[]) { }
+  protected validators: Writable<ValidatorFn<T>[]>;
+
+  constructor(validators: ValidatorFn<T>[]) {
+    this.validators = writable(validators);
+  }
 
   abstract value: Writable<T>;
 
@@ -37,7 +41,7 @@ export abstract class ControlBase<T = any> {
 
   setValidators(validators: ValidatorFn<T>[]) {
     if (!(Array.isArray(validators) && validators.length)) return;
-    this.validators = validators;
+    this.validators.set(validators);
   }
 
 }
@@ -48,8 +52,8 @@ export class Control<T = ControlTypes> extends ControlBase<T> {
 
   private touched = writable(false);
 
-  state = derived([this.value, this.touched], ([value, $touched]) => {
-    const $error = validateIterated(this.validators, value);
+  state = derived([this.value, this.touched, this.validators], ([value, $touched, validators]) => {
+    const $error = validateIterated(validators, value);
     const $valid = $error == null;
     const $dirty = this.initial !== value;
     return { $error, $valid, $touched, $dirty } as ControlState<T>;
@@ -111,21 +115,23 @@ export class ControlGroup<T> extends ControlBase<T> {
     update: updater => this.setValue(updater(get(this.valueDerived))),
   };
 
-  state = derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
-    const children: Record<string, $ControlState> = {};
-    let childrenValid = true;
-    let $touched = false;
-    let $dirty = false;
-    for (const key of Object.keys(childState)) {
-      const state = children[key] = (childState as any)[key] as $ControlState;
-      childrenValid = childrenValid && state.$valid;
-      $touched = $touched || state.$touched;
-      $dirty = $dirty || state.$dirty;
-    }
-    const $error = validateIterated(this.validators, value);
-    const $valid = $error == null && childrenValid;
-    return { $error, $valid, $touched, $dirty, ...children } as ControlState<T>;
-  });
+  state = derived(
+    [this.valueDerived, this.childStateDerived, this.validators],
+    ([value, childState, validators]) => {
+      const children: Record<string, $ControlState> = {};
+      let childrenValid = true;
+      let $touched = false;
+      let $dirty = false;
+      for (const key of Object.keys(childState)) {
+        const state = children[key] = (childState as any)[key] as $ControlState;
+        childrenValid = childrenValid && state.$valid;
+        $touched = $touched || state.$touched;
+        $dirty = $dirty || state.$dirty;
+      }
+      const $error = validateIterated(validators, value);
+      const $valid = $error == null && childrenValid;
+      return { $error, $valid, $touched, $dirty, ...children } as ControlState<T>;
+    });
 
   constructor(
     controls: Controls<T>,
@@ -135,14 +141,15 @@ export class ControlGroup<T> extends ControlBase<T> {
     this.controlStore.set(controls);
   }
 
-  private iterateControls(callback: (args: [keyof T, ControlBase]) => void) {
+  private iterateControls<K extends keyof T>(callback: (args: [K, ControlBase<T[K]>]) => void) {
     const controls = get(this.controlStore);
-    (<[keyof T, ControlBase][]>Object.entries(controls)).forEach(callback);
+    (<[K, ControlBase<T[K]>][]>Object.entries(controls)).forEach(callback);
   }
 
   private setValue(value: T) {
     this.iterateControls(([key, control]) => {
-      control.value.set((value as any)[key]);
+      const controlValue = value && value[key] || null;
+      control.value.set(controlValue!);
     });
   }
 
@@ -170,7 +177,8 @@ export class ControlGroup<T> extends ControlBase<T> {
 
   reset(value?: T) {
     this.iterateControls(([key, control]) => {
-      control.reset(value && (value as any)[key]);
+      const controlValue = value && value[key] || null;
+      control.reset(controlValue!);
     });
   };
 
@@ -205,22 +213,24 @@ export class ControlArray<T> extends ControlBase<T[]> {
     update: updater => this.setValue(updater(get(this.valueDerived))),
   };
 
-  state = derived([this.valueDerived, this.childStateDerived], ([value, childState]) => {
-    const arrayState = { } as $ControlState & { list: $ControlState[] };
-    arrayState.list = [];
-    let childrenValid = true;
-    for (let i = 0, len = childState.length; i < len; i++) {
-      const state = childState[i];
-      arrayState.list[i] = state;
-      childrenValid = childrenValid && state.$valid;
-      arrayState.$touched = arrayState.$touched || state.$touched;
-      arrayState.$dirty = arrayState.$dirty || state.$dirty;
-    }
-    arrayState.$error = validateIterated(this.validators, value);
-    arrayState.$valid = arrayState.$error == null && childrenValid;
+  state = derived(
+    [this.valueDerived, this.childStateDerived, this.validators],
+    ([value, childState, validators]) => {
+      const arrayState = {} as $ControlState & { list: $ControlState[] };
+      arrayState.list = [];
+      let childrenValid = true;
+      for (let i = 0, len = childState.length; i < len; i++) {
+        const state = childState[i];
+        arrayState.list[i] = state;
+        childrenValid = childrenValid && state.$valid;
+        arrayState.$touched = arrayState.$touched || state.$touched;
+        arrayState.$dirty = arrayState.$dirty || state.$dirty;
+      }
+      arrayState.$error = validateIterated(validators, value);
+      arrayState.$valid = arrayState.$error == null && childrenValid;
 
-    return arrayState as ControlState<T[]>;
-  });
+      return arrayState as ControlState<T[]>;
+    });
 
   constructor(
     private readonly _controls: ControlBase<T>[],
@@ -235,7 +245,10 @@ export class ControlArray<T> extends ControlBase<T[]> {
   }
 
   private setValue(value: T[]) {
-    this.iterateControls((control, index) => control.value.set(value[index]));
+    this.iterateControls((control, index) => {
+      const controlValue = value && value[index] || null;
+      control.value.set(controlValue!);
+    });
   }
 
   setTouched(touched: boolean) {
@@ -271,7 +284,10 @@ export class ControlArray<T> extends ControlBase<T[]> {
   }
 
   reset(value?: T[]) {
-    this.iterateControls((control, index) => control.reset(value && value[index]));
+    this.iterateControls((control, index) => {
+      const controlValue = value && value[index] || null;
+      control.reset(controlValue!);
+    });
   }
 
 }
