@@ -16,7 +16,7 @@ declare type ControlState<T = any> = T extends (infer K)[] ? $ControlState & {
     [K in keyof T]: ControlState<T[K]> & $ControlState;
 } : $ControlState;
 export declare abstract class ControlBase<T = any> {
-    protected validators: ValidatorFn<T>[];
+    protected validators: Writable<ValidatorFn<T>[]>;
     constructor(validators: ValidatorFn<T>[]);
     abstract value: Writable<T>;
     abstract state: Readable<ControlState<T>>;
