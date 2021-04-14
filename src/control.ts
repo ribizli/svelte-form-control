@@ -148,7 +148,7 @@ export class ControlGroup<T> extends ControlBase<T> {
 
   private setValue(value: T) {
     this.iterateControls(([key, control]) => {
-      const controlValue = value && value[key] || null;
+      const controlValue = value?.[key] ?? null;
       control.value.set(controlValue!);
     });
   }
@@ -246,7 +246,7 @@ export class ControlArray<T> extends ControlBase<T[]> {
 
   private setValue(value: T[]) {
     this.iterateControls((control, index) => {
-      const controlValue = value && value[index] || null;
+      const controlValue = value?.[index] ?? null;
       control.value.set(controlValue!);
     });
   }
